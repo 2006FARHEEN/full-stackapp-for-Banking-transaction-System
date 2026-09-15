@@ -1,9 +1,10 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import * as api from "../utils/api";
 
 const money = (value) => {
-  return `$${Math.abs(
+  return `₹${Math.abs(
     Number(value || 0)
   ).toFixed(2)}`;
 };
@@ -11,14 +12,9 @@ const money = (value) => {
 function TransactionHistory() {
   const { accountId } = useParams();
 
-  const [transactions, setTransactions] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const loadTransactions = async () => {
@@ -31,10 +27,9 @@ function TransactionHistory() {
           accountId
         );
 
-        const data =
-          await api.fetchTransactionHistory(
-            accountId
-          );
+        const data = await api.fetchTransactionHistory(
+          accountId
+        );
 
         console.log(
           "Transaction history response:",
@@ -50,9 +45,7 @@ function TransactionHistory() {
           error
         );
 
-        setError(
-          api.messageFromError(error)
-        );
+        setError(api.messageFromError(error));
       } finally {
         setLoading(false);
       }
@@ -66,15 +59,17 @@ function TransactionHistory() {
     }
   }, [accountId]);
 
+  // Loading state
   if (loading) {
     return (
       <div className="dashboard-container">
-        
+        <h1>Transaction History</h1>
         <p>Loading transactions...</p>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="dashboard-container">
@@ -87,6 +82,7 @@ function TransactionHistory() {
     );
   }
 
+  // Empty state
   if (transactions.length === 0) {
     return (
       <div className="dashboard-container">
@@ -96,32 +92,27 @@ function TransactionHistory() {
           <h3>No Transactions</h3>
 
           <p>
-            Your transaction history will
-            appear here.
+            Your transaction history will appear here.
           </p>
         </div>
       </div>
     );
   }
 
-  const sortedTransactions =
-    [...transactions].sort(
-      (a, b) =>
-        new Date(b.transactionDate) -
-        new Date(a.transactionDate)
-    );
+  // Sort transactions from newest to oldest
+  const sortedTransactions = [...transactions].sort(
+    (a, b) =>
+      new Date(b.transactionDate) -
+      new Date(a.transactionDate)
+  );
 
   return (
     <div className="dashboard-container">
-
       <h1>Transaction History</h1>
 
       <div className="table-card">
-
         <div className="table-scroll">
-
           <table>
-
             <thead>
               <tr>
                 <th>Date</th>
@@ -133,85 +124,72 @@ function TransactionHistory() {
             </thead>
 
             <tbody>
+              {sortedTransactions.map((transaction) => {
+                const type = transaction.transactionType;
 
-              {sortedTransactions.map(
-                (transaction) => {
+                const isOutgoing =
+                  type === "WITHDRAWAL" ||
+                  type === "TRANSFER";
 
-                  const type =
-                    transaction.transactionType;
+                return (
+                  <tr
+                    key={transaction.transactionId}
+                  >
+                    {/* Date */}
+                    <td>
+                      {transaction.transactionDate
+                        ? new Date(
+                            transaction.transactionDate
+                          ).toLocaleString()
+                        : "—"}
+                    </td>
 
-                  const isOutgoing =
-                    type === "WITHDRAWAL" ||
-                    type === "TRANSFER";
+                    {/* Transaction Type */}
+                    <td>
+                      <span
+                        className={`tx-badge ${
+                          type
+                            ? type.toLowerCase()
+                            : ""
+                        }`}
+                      >
+                        {type || "—"}
+                      </span>
+                    </td>
 
-                  return (
-                    <tr
-                      key={
-                        transaction.transactionId
+                    {/* Description */}
+                    <td>
+                      {transaction.description || "—"}
+                    </td>
+
+                    {/* Recipient */}
+                    <td>
+                      {transaction.recipientAccountId ||
+                        "—"}
+                    </td>
+
+                    {/* Amount */}
+                    <td
+                      className={
+                        isOutgoing
+                          ? "amount-out"
+                          : "amount-in"
                       }
                     >
-
-                      <td>
-                        {transaction.transactionDate
-                          ? new Date(
-                              transaction.transactionDate
-                            ).toLocaleString()
-                          : "—"}
-                      </td>
-
-                      <td>
-                        <span
-                          className={`tx-badge ${
-                            type
-                              ? type.toLowerCase()
-                              : ""
-                          }`}
-                        >
-                          {type || "—"}
-                        </span>
-                      </td>
-
-                      <td>
-                        {transaction.description ||
-                          "—"}
-                      </td>
-
-                      <td>
-                        {transaction.recipientAccountId ||
-                          "—"}
-                      </td>
-
-                      <td
-                        className={
-                          isOutgoing
-                            ? "amount-out"
-                            : "amount-in"
-                        }
-                      >
-                        {isOutgoing
-                          ? `-${money(
-                              transaction.amount
-                            )}`
-                          : `+${money(
-                              transaction.amount
-                            )}`}
-                      </td>
-
-                    </tr>
-                  );
-                }
-              )}
-
+                      {isOutgoing
+                        ? `-${money(transaction.amount)}`
+                        : `+${money(transaction.amount)}`}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
-
           </table>
-
         </div>
-
       </div>
-
     </div>
   );
 }
 
 export default TransactionHistory;
+

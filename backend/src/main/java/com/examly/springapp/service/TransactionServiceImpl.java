@@ -41,7 +41,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     // =========================================================
-    // CURRENT LOGGED-IN USER
+    // GET CURRENT LOGGED-IN USER
     // =========================================================
 
     private User getCurrentUser() {
@@ -52,15 +52,14 @@ public class TransactionServiceImpl implements TransactionService {
                         .getAuthentication();
 
         if (authentication == null ||
-            !authentication.isAuthenticated()) {
+                !authentication.isAuthenticated()) {
 
             throw new SecurityException(
                     "User is not authenticated"
             );
         }
 
-        String username =
-                authentication.getName();
+        String username = authentication.getName();
 
         return userRepository
                 .findByUsername(username)
@@ -71,39 +70,39 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     // =========================================================
-    // CHECK ADMIN
+    // CHECK WHETHER CURRENT USER IS ADMIN
     // =========================================================
 
     private boolean isAdmin(User user) {
 
         return user.getRole() != null &&
-               user.getRole().equalsIgnoreCase("ADMIN");
+                user.getRole().equalsIgnoreCase("ADMIN");
     }
 
     // =========================================================
     // ACCOUNT ACCESS CHECK
+    //
+    // Used for VIEWING transaction history.
+    //
+    // ADMIN -> can view any account
+    // USER  -> can view only their own account
     // =========================================================
 
     private void checkAccountAccess(Long accountId) {
 
         User currentUser = getCurrentUser();
 
-        // ADMIN can access every account
+        // -----------------------------------------------------
+        // ADMIN CAN VIEW ANY ACCOUNT
+        // -----------------------------------------------------
+
         if (isAdmin(currentUser)) {
             return;
         }
 
-        /*
-         * For USER:
-         *
-         * The account holder name must match
-         * the logged-in username.
-         *
-         * If your accountHolderName is the user's
-         * actual name rather than username, we will
-         * change this later to a proper User-Account
-         * relationship.
-         */
+        // -----------------------------------------------------
+        // FIND ACCOUNT
+        // -----------------------------------------------------
 
         Account account = accountRepository
                 .findById(accountId)
@@ -112,8 +111,15 @@ public class TransactionServiceImpl implements TransactionService {
                                 "Account not found"
                         ));
 
-        if (!account.getAccountHolderName()
-                .equalsIgnoreCase(currentUser.getUsername())) {
+        // -----------------------------------------------------
+        // USER CAN VIEW ONLY THEIR OWN ACCOUNT
+        // -----------------------------------------------------
+
+        if (account.getOwnerUsername() == null ||
+                !account.getOwnerUsername()
+                        .equalsIgnoreCase(
+                                currentUser.getUsername()
+                        )) {
 
             throw new SecurityException(
                     "You are not authorized to access this account"
@@ -122,7 +128,59 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     // =========================================================
+    // TRANSACTION ACCESS CHECK
+    //
+    // ADMIN -> NEVER allowed
+    // USER  -> only own account
+    // =========================================================
+
+    private void checkTransactionAccess(Long accountId) {
+
+        User currentUser = getCurrentUser();
+
+        // -----------------------------------------------------
+        // ADMIN CANNOT PERFORM TRANSACTIONS
+        // -----------------------------------------------------
+
+        if (isAdmin(currentUser)) {
+
+            throw new SecurityException(
+                    "Administrators cannot perform transactions"
+            );
+        }
+
+        // -----------------------------------------------------
+        // FIND ACCOUNT
+        // -----------------------------------------------------
+
+        Account account = accountRepository
+                .findById(accountId)
+                .orElseThrow(() ->
+                        new NoSuchElementException(
+                                "Account not found"
+                        ));
+
+        // -----------------------------------------------------
+        // USER CAN TRANSACT ONLY ON OWN ACCOUNT
+        // -----------------------------------------------------
+
+        if (account.getOwnerUsername() == null ||
+                !account.getOwnerUsername()
+                        .equalsIgnoreCase(
+                                currentUser.getUsername()
+                        )) {
+
+            throw new SecurityException(
+                    "You are not authorized to perform transactions on this account"
+            );
+        }
+    }
+
+    // =========================================================
     // DEPOSIT
+    //
+    // USER ONLY
+    // OWN ACCOUNT ONLY
     // =========================================================
 
     @Override
@@ -132,7 +190,12 @@ public class TransactionServiceImpl implements TransactionService {
             Double amount,
             String description) {
 
-        checkAccountAccess(accountId);
+        // Check role + account ownership
+        checkTransactionAccess(accountId);
+
+        // -----------------------------------------------------
+        // AMOUNT VALIDATION
+        // -----------------------------------------------------
 
         if (amount == null || amount <= 0) {
 
@@ -141,18 +204,31 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // FIND ACCOUNT
+        // -----------------------------------------------------
+
         Account account =
-                accountRepository.findById(accountId)
+                accountRepository
+                        .findById(accountId)
                         .orElseThrow(() ->
                                 new NoSuchElementException(
                                         "Account not found"
                                 ));
+
+        // -----------------------------------------------------
+        // ADD MONEY
+        // -----------------------------------------------------
 
         account.setBalance(
                 account.getBalance() + amount
         );
 
         accountRepository.save(account);
+
+        // -----------------------------------------------------
+        // CREATE TRANSACTION RECORD
+        // -----------------------------------------------------
 
         Transaction transaction =
                 new Transaction();
@@ -172,6 +248,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     // =========================================================
     // WITHDRAW
+    //
+    // USER ONLY
+    // OWN ACCOUNT ONLY
     // =========================================================
 
     @Override
@@ -181,7 +260,12 @@ public class TransactionServiceImpl implements TransactionService {
             Double amount,
             String description) {
 
-        checkAccountAccess(accountId);
+        // Check role + account ownership
+        checkTransactionAccess(accountId);
+
+        // -----------------------------------------------------
+        // AMOUNT VALIDATION
+        // -----------------------------------------------------
 
         if (amount == null || amount <= 0) {
 
@@ -190,12 +274,21 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // FIND ACCOUNT
+        // -----------------------------------------------------
+
         Account account =
-                accountRepository.findById(accountId)
+                accountRepository
+                        .findById(accountId)
                         .orElseThrow(() ->
                                 new NoSuchElementException(
                                         "Account not found"
                                 ));
+
+        // -----------------------------------------------------
+        // CHECK MINIMUM BALANCE
+        // -----------------------------------------------------
 
         double remainingBalance =
                 account.getBalance() - amount;
@@ -207,9 +300,17 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // REMOVE MONEY
+        // -----------------------------------------------------
+
         account.setBalance(remainingBalance);
 
         accountRepository.save(account);
+
+        // -----------------------------------------------------
+        // CREATE TRANSACTION RECORD
+        // -----------------------------------------------------
 
         Transaction transaction =
                 new Transaction();
@@ -229,6 +330,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     // =========================================================
     // TRANSFER
+    //
+    // USER ONLY
+    // SOURCE ACCOUNT MUST BELONG TO USER
     // =========================================================
 
     @Override
@@ -239,8 +343,15 @@ public class TransactionServiceImpl implements TransactionService {
             Double amount,
             String description) {
 
-        // User must own the SOURCE account
-        checkAccountAccess(fromAccountId);
+        // -----------------------------------------------------
+        // CHECK USER + SOURCE ACCOUNT OWNERSHIP
+        // -----------------------------------------------------
+
+        checkTransactionAccess(fromAccountId);
+
+        // -----------------------------------------------------
+        // SAME ACCOUNT CHECK
+        // -----------------------------------------------------
 
         if (fromAccountId.equals(toAccountId)) {
 
@@ -249,6 +360,10 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // AMOUNT VALIDATION
+        // -----------------------------------------------------
+
         if (amount == null || amount <= 0) {
 
             throw new IllegalArgumentException(
@@ -256,19 +371,33 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // FIND SENDER ACCOUNT
+        // -----------------------------------------------------
+
         Account sender =
-                accountRepository.findById(fromAccountId)
+                accountRepository
+                        .findById(fromAccountId)
                         .orElseThrow(() ->
                                 new NoSuchElementException(
                                         "Sender account not found"
                                 ));
 
+        // -----------------------------------------------------
+        // FIND RECEIVER ACCOUNT
+        // -----------------------------------------------------
+
         Account receiver =
-                accountRepository.findById(toAccountId)
+                accountRepository
+                        .findById(toAccountId)
                         .orElseThrow(() ->
                                 new NoSuchElementException(
                                         "Recipient account not found"
                                 ));
+
+        // -----------------------------------------------------
+        // CHECK MINIMUM BALANCE
+        // -----------------------------------------------------
 
         double remainingBalance =
                 sender.getBalance() - amount;
@@ -280,14 +409,30 @@ public class TransactionServiceImpl implements TransactionService {
             );
         }
 
+        // -----------------------------------------------------
+        // DEDUCT FROM SENDER
+        // -----------------------------------------------------
+
         sender.setBalance(remainingBalance);
+
+        // -----------------------------------------------------
+        // ADD TO RECEIVER
+        // -----------------------------------------------------
 
         receiver.setBalance(
                 receiver.getBalance() + amount
         );
 
+        // -----------------------------------------------------
+        // SAVE BOTH ACCOUNTS
+        // -----------------------------------------------------
+
         accountRepository.save(sender);
         accountRepository.save(receiver);
+
+        // -----------------------------------------------------
+        // CREATE TRANSFER TRANSACTION
+        // -----------------------------------------------------
 
         Transaction transaction =
                 new Transaction();
@@ -308,16 +453,19 @@ public class TransactionServiceImpl implements TransactionService {
 
     // =========================================================
     // TRANSACTION HISTORY
+    //
+    // ADMIN + USER
+    //
+    // ADMIN -> can view any account history
+    // USER  -> can view only own account history
     // =========================================================
 
     @Override
     public List<Transaction> getTransactionHistory(
             Long accountId) {
 
-        // IMPORTANT:
-        // This prevents USER from viewing another
-        // user's transaction history.
-
+        // ADMIN is allowed here.
+        // USER is checked for ownership.
         checkAccountAccess(accountId);
 
         return transactionRepository

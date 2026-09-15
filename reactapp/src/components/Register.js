@@ -103,7 +103,7 @@ function Register() {
         </div>
 
         <h1>
-          Create Account
+          Register 
         </h1>
 
         <p className="muted">

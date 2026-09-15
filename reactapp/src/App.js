@@ -24,9 +24,9 @@ import TransactionHistory from "./components/TransactionHistory";
 
 import "./App.css";
 
-// =====================================================
+
 // PRIVATE ROUTE
-// =====================================================
+
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -38,9 +38,8 @@ function PrivateRoute({ children }) {
   return children;
 }
 
-// =====================================================
+
 // ROLE ROUTE
-// =====================================================
 
 function RoleRoute({ allowedRoles, children }) {
   const token = localStorage.getItem("token");
@@ -57,9 +56,9 @@ function RoleRoute({ allowedRoles, children }) {
   return children;
 }
 
-// =====================================================
+
 // LAYOUT
-// =====================================================
+
 
 function Layout({ children, onLogout }) {
   const navigate = useNavigate();
@@ -84,7 +83,7 @@ function Layout({ children, onLogout }) {
     navigate("/login", { replace: true });
   };
 
-  // Do not show navbar on login/register
+  
   if (isAuthPage) {
     return <>{children}</>;
   }
@@ -127,9 +126,9 @@ function Layout({ children, onLogout }) {
   );
 }
 
-// =====================================================
+
 // APP
-// =====================================================
+
 
 function App() {
 

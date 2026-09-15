@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.examly.springapp.dto.DepositWithdrawRequest;
@@ -27,9 +28,13 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
-    // ================= DEPOSIT =================
+    // =====================================================
+    // DEPOSIT
+    // USER ONLY
+    // =====================================================
 
     @PostMapping("/deposit")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Account> deposit(
             @Valid @RequestBody DepositWithdrawRequest request) {
 
@@ -42,9 +47,13 @@ public class TransactionController {
         return ResponseEntity.ok(account);
     }
 
-    // ================= WITHDRAW =================
+    // =====================================================
+    // WITHDRAW
+    // USER ONLY
+    // =====================================================
 
     @PostMapping("/withdraw")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Account> withdraw(
             @Valid @RequestBody DepositWithdrawRequest request) {
 
@@ -57,9 +66,13 @@ public class TransactionController {
         return ResponseEntity.ok(account);
     }
 
-    // ================= TRANSFER =================
+    // =====================================================
+    // TRANSFER
+    // USER ONLY
+    // =====================================================
 
     @PostMapping("/transfer")
+    @PreAuthorize("hasRole('USER')")
     public ResponseEntity<Account> transfer(
             @Valid @RequestBody TransferRequest request) {
 
@@ -73,9 +86,13 @@ public class TransactionController {
         return ResponseEntity.ok(account);
     }
 
-    // ================= TRANSACTION HISTORY =================
+    // =====================================================
+    // TRANSACTION HISTORY
+    // ADMIN + USER
+    // =====================================================
 
     @GetMapping("/account/{accountId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<List<Transaction>> getTransactionHistory(
             @PathVariable Long accountId) {
 
